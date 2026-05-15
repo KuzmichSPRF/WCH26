@@ -89,3 +89,11 @@ async def create_mock_game_if_empty():
                 VALUES ('Канада', 'Финляндия', ?, 1.8, 2.5, 3.2)
             ''', (start_time,))
             await db.commit()
+
+async def add_game(team1: str, team2: str, start_time: str, odds_t1: float, odds_t2: float, odds_draw: float):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('''
+            INSERT INTO games (team1, team2, start_time, odds_t1, odds_t2, odds_draw)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (team1, team2, start_time, odds_t1, odds_t2, odds_draw))
+        await db.commit()

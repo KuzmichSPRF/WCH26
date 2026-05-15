@@ -125,10 +125,6 @@ async def process_bet_amount(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     balance = await db.get_user_balance(user_id)
 
-    if balance < amount:
-        await message.answer(f"Недостаточно средств. Ваш баланс: {balance:.2f} $GUM.")
-        return
-
     # Добавляем ставку
     await db.add_bet(user_id, data['game_id'], data['choice'], amount)
     
@@ -138,6 +134,32 @@ async def process_bet_amount(message: types.Message, state: FSMContext):
     await state.clear()
 
 # --- ХЕНДЛЕРЫ АДМИНИСТРАТОРА ---
+
+@dp.message(Command("creategame"))
+async def admin_create_game(message: types.Message):
+    if not is_admin(message.from_user.id): return
+    args = message.text.split()
+    # Ожидаем: /creategame Команда1 Команда2 YYYY-MM-DD HH:MM П1 П2 Ничья
+    if len(args) != 8:
+        await message.answer("Формат: /creategame <Команда1> <Команда2> <YYYY-MM-DD> <HH:MM> <П1> <П2> <Ничья>\n"
+                             "Пример: /creategame Канада США 2026-05-15 20:00 1.5 2.5 4.0\n"
+                             "Если название команды из двух слов, пишите слитно или через дефис (например, Чехия-U20).")
+        return
+    
+    try:
+        team1, team2 = args[1], args[2]
+        start_time = f"{args[3]} {args[4]}:00"
+        t1, t2, draw = float(args[5]), float(args[6]), float(args[7])
+        
+        # Проверяем формат времени
+        datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
+        
+        await db.add_game(team1, team2, start_time, t1, t2, draw)
+        await message.answer(f"✅ Матч <b>{team1} - {team2}</b> успешно создан!\nНачало: {start_time}\nКэфы: П1({t1}) П2({t2}) Х({draw})", parse_mode="HTML")
+    except ValueError:
+        await message.answer("❌ Ошибка формата данных. Убедитесь, что дата введена как YYYY-MM-DD HH:MM, а коэффициенты - числа (через точку).")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {e}")
 
 @dp.message(Command("setodds"))
 async def admin_set_odds(message: types.Message):
@@ -176,8 +198,8 @@ async def admin_set_result(message: types.Message):
     winning_odds = game[4] if result == 't1' else game[5] if result == 't2' else game[6]
 
     # Фиксируем результат и генерируем отчет
-    await db.set_game_result(game_id, result)
-    excel_path = await excel.process_game_results(game_id, result, winning_odds)
+    await db.set_game_result(game_id, result) # Это должно быть до process_game_results, чтобы статус был "finished"
+    excel_path = await excel.process_game_results(bot, game_id, result, winning_odds, game[1], game[2])
     
     # Отправляем файл
     file = FSInputFile(excel_path)

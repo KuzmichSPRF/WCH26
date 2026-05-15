@@ -2,8 +2,9 @@ import pandas as pd
 import aiosqlite
 from database import DB_NAME
 import os
+from aiogram import Bot
 
-async def process_game_results(game_id: int, result: str, odds: float) -> str:
+async def process_game_results(bot: Bot, game_id: int, result: str, odds: float, team1: str, team2: str) -> str:
     """Рассчитывает выигрыши, обновляет балансы и возвращает путь к Excel файлу."""
     async with aiosqlite.connect(DB_NAME) as db:
         query = "SELECT user_id, choice, amount FROM bets WHERE game_id = ?"
@@ -23,6 +24,16 @@ async def process_game_results(game_id: int, result: str, odds: float) -> str:
                 await db.execute("UPDATE users SET balance = balance + ? WHERE user_id=?", 
                                  (winnings, user_id))
             await db.commit()
+
+        # Отправка уведомления пользователю
+        if is_winner:
+            notification_text = (f"🎉 Ваша ставка на матч <b>{team1} - {team2}</b> выиграла!\n"
+                                 f"Ваш выигрыш: <b>{winnings:.2f} $GUM</b>.\n"
+                                 f"Выигрыш будет начислен в течение 24 часов.")
+        else:
+            notification_text = (f"😢 Ваша ставка на матч <b>{team1} - {team2}</b> проиграла.\n"
+                                 f"Удачи в следующий раз!")
+        await bot.send_message(chat_id=user_id, text=notification_text, parse_mode="HTML")
             
         data.append({
             "ID Игрока": user_id,

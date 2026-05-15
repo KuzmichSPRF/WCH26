@@ -123,6 +123,10 @@ async def process_bet_start(callback: types.CallbackQuery, callback_data: BetCal
 async def process_bet_choice(callback: types.CallbackQuery, callback_data: BetCallback, state: FSMContext):
     game = await db.get_game(callback_data.game_id)
     
+    if not game:
+        await callback.answer("Игра не найдена.", show_alert=True)
+        return
+
     if game[7] == 'finished':
         await callback.answer("Этот матч уже завершен и недоступен для ставок.", show_alert=True)
         return
@@ -157,6 +161,20 @@ async def process_bet_amount(message: types.Message, state: FSMContext):
     data = await state.get_data()
     user_id = message.from_user.id
     
+    # Повторная проверка игры на случай "отложенной ставки"
+    game = await db.get_game(data['game_id'])
+    if not game or game[7] == 'finished':
+        await message.answer("Этот матч уже завершен или удален. Ставка отменена.")
+        await state.clear()
+        return
+        
+    start_time = datetime.strptime(game[3], "%Y-%m-%d %H:%M:%S")
+    msk_now = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=3)
+    if start_time - msk_now <= timedelta(minutes=30):
+        await message.answer("Ставки закрыты! До начала осталось менее 30 минут. Ставка отменена.")
+        await state.clear()
+        return
+
     if await db.has_user_bet(user_id, data['game_id']):
         await message.answer("Вы уже сделали ставку на этот матч! Можно ставить только один раз.")
         await state.clear()

@@ -325,11 +325,13 @@ async def admin_set_result(message: types.Message):
     winning_odds = game[4] if result == 't1' else game[5] if result == 't2' else game[6]
 
     # Фиксируем результат и генерируем отчет
-    await db.set_game_result(game_id, result) # Это должно быть до process_game_results, чтобы статус был "finished"
-    excel_path = await excel.process_game_results(bot, game_id, result, winning_odds, game[1], game[2])
+    # Важно: set_game_result должен быть вызван до process_game_results, чтобы статус игры был 'finished'
+    # при обработке ставок и предотвращении повторных ставок.
+    await db.set_game_result(game_id, result) 
+    excel_path, financial_summary = await excel.process_game_results(bot, game_id, result, winning_odds, game[1], game[2])
     
     # Отправляем файл всем админам
-    caption_text = f"✅ Матч {game_id} завершен.\nПобедный исход: {result}\nОтчет прикреплен."
+    caption_text = f"✅ Матч {game_id} завершен.\nПобедный исход: {result}\nОтчет прикреплен.{financial_summary}"
     for admin_id in ADMINS:
         try:
             await bot.send_document(chat_id=admin_id, document=FSInputFile(excel_path), caption=caption_text)

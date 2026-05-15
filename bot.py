@@ -47,9 +47,9 @@ async def fetch_games_job():
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    balance = await db.get_user_balance(message.from_user.id)
+    await db.get_user_balance(message.from_user.id) # Регистрируем пользователя, если его нет в БД
     text = (f"🏒 Добро пожаловать на ставки ЧМ 2026 по хоккею!\n\n"
-            f"💰 Ваш баланс: {balance:.2f} $GUM\n\n"
+            f"Этот бот позволяет делать виртуальные ставки на матчи турнира. Угадывайте исходы, проверяйте свою интуицию и зарабатывайте $GUM!\n\n"
             f"Используйте /games чтобы посмотреть список доступных матчей.")
     await message.answer(text)
 
@@ -193,4 +193,7 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logging.info("Бот остановлен вручную.")

@@ -1,7 +1,7 @@
 import os
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, types, F
@@ -129,7 +129,9 @@ async def process_bet_choice(callback: types.CallbackQuery, callback_data: BetCa
 
     # Проверка времени (за 30 минут)
     start_time = datetime.strptime(game[3], "%Y-%m-%d %H:%M:%S")
-    if start_time - datetime.now() <= timedelta(minutes=30):
+    # Вычисляем текущее московское время (UTC + 3 часа)
+    msk_now = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=3)
+    if start_time - msk_now <= timedelta(minutes=30):
         await callback.answer("Ставки закрыты! До начала осталось менее 30 минут.", show_alert=True)
         return
 

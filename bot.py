@@ -209,7 +209,14 @@ async def admin_create_game(message: types.Message):
         t1, t2, draw = float(args[5]), float(args[6]), float(args[7])
         
         # Проверяем формат времени
-        datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
+        parsed_start_time = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
+        msk_now = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=3)
+        if parsed_start_time < msk_now:
+            await message.answer("❌ Время начала матча не может быть в прошлом.")
+            return
+        if t1 <= 0 or t2 <= 0 or draw <= 0:
+            await message.answer("❌ Коэффициенты должны быть положительными числами.")
+            return
         
         await db.add_game(team1, team2, start_time, t1, t2, draw)
         await message.answer(f"✅ Матч <b>{team1} - {team2}</b> успешно создан!\nНачало: {start_time} (МСК)\nКэфы: П1({t1}) П2({t2}) Х({draw})", parse_mode="HTML")

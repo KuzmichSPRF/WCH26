@@ -57,10 +57,12 @@ async def has_user_bet(user_id: int, game_id: int) -> bool:
 
 async def add_bet(user_id: int, game_id: int, choice: str, amount: float):
     async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (amount, user_id))
-        await db.execute('INSERT INTO bets (user_id, game_id, choice, amount) VALUES (?, ?, ?, ?)',
-                         (user_id, game_id, choice, amount))
-        await db.commit()
+        # Используем транзакцию для атомарности
+        async with db.cursor() as cursor:
+            await cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (amount, user_id))
+            await cursor.execute('INSERT INTO bets (user_id, game_id, choice, amount) VALUES (?, ?, ?, ?)',
+                                 (user_id, game_id, choice, amount))
+        await db.commit() # Коммит транзакции
 
 async def get_active_games():
     async with aiosqlite.connect(DB_NAME) as db:
@@ -93,9 +95,11 @@ async def add_game(team1: str, team2: str, start_time: str, odds_t1: float, odds
 
 async def delete_game(game_id: int):
     async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("DELETE FROM games WHERE game_id = ?", (game_id,))
-        await db.execute("DELETE FROM bets WHERE game_id = ?", (game_id,))
-        await db.commit()
+        # Используем транзакцию для атомарности
+        async with db.cursor() as cursor:
+            await cursor.execute("DELETE FROM games WHERE game_id = ?", (game_id,))
+            await cursor.execute("DELETE FROM bets WHERE game_id = ?", (game_id,))
+        await db.commit() # Коммит транзакции
 
 async def get_game_bets(game_id: int):
     async with aiosqlite.connect(DB_NAME) as db:

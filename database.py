@@ -97,3 +97,9 @@ async def add_game(team1: str, team2: str, start_time: str, odds_t1: float, odds
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (team1, team2, start_time, odds_t1, odds_t2, odds_draw))
         await db.commit()
+
+async def delete_game(game_id: int):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("DELETE FROM games WHERE game_id = ?", (game_id,))
+        await db.execute("DELETE FROM bets WHERE game_id = ?", (game_id,))
+        await db.commit()

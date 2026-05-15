@@ -27,11 +27,11 @@ async def process_game_results(bot: Bot, game_id: int, result: str, odds: float,
 
         # Отправка уведомления пользователю
         if is_winner:
-            notification_text = (f"🎉 Ваша ставка на матч <b>{team1} - {team2}</b> выиграла!\n"
+            notification_text = (f"🎉 Ваша ставка на матч <b>[ID: {game_id}] {team1} - {team2}</b> выиграла!\n"
                                  f"Ваш выигрыш: <b>{winnings:.2f} $GUM</b>.\n"
                                  f"Выигрыш будет начислен в течение 24 часов.")
         else:
-            notification_text = (f"😢 Ваша ставка на матч <b>{team1} - {team2}</b> проиграла.\n"
+            notification_text = (f"😢 Ваша ставка на матч <b>[ID: {game_id}] {team1} - {team2}</b> проиграла.\n"
                                  f"Удачи в следующий раз!")
         await bot.send_message(chat_id=user_id, text=notification_text, parse_mode="HTML")
             

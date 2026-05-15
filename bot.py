@@ -62,7 +62,7 @@ async def cmd_games(message: types.Message):
 
     for g in games:
         # g = (id, team1, team2, start_time, odds1, odds2, odds_draw, status, result)
-        text = (f"🥅 <b>{g[1]} vs {g[2]}</b>\n"
+        text = (f"🥅 <b>[ID: {g[0]}] {g[1]} vs {g[2]}</b>\n"
                 f"🕒 Начало: {g[3]}\n\n"
                 f"Коэффициенты:\n"
                 f"Победа 1 ({g[1]}): {g[4]}\n"
@@ -83,6 +83,10 @@ async def process_bet_start(callback: types.CallbackQuery, callback_data: BetCal
         await callback.answer("Игра не найдена.", show_alert=True)
         return
 
+    if game[7] == 'finished':
+        await callback.answer("Этот матч уже завершен и недоступен для ставок.", show_alert=True)
+        return
+
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text=f"П1 ({game[4]})", callback_data=BetCallback(game_id=game[0], action="t1").pack()),
@@ -90,7 +94,7 @@ async def process_bet_start(callback: types.CallbackQuery, callback_data: BetCal
             InlineKeyboardButton(text=f"П2 ({game[5]})", callback_data=BetCallback(game_id=game[0], action="t2").pack())
         ]
     ])
-    await callback.message.edit_text(f"Выберите исход матча <b>{game[1]} vs {game[2]}</b>:", reply_markup=kb, parse_mode="HTML")
+    await callback.message.edit_text(f"Выберите исход матча <b>[ID: {game[0]}] {game[1]} vs {game[2]}</b>:", reply_markup=kb, parse_mode="HTML")
     await callback.answer()
 
 # Выбор исхода матча (П1, Х, П2)
@@ -98,6 +102,10 @@ async def process_bet_start(callback: types.CallbackQuery, callback_data: BetCal
 async def process_bet_choice(callback: types.CallbackQuery, callback_data: BetCallback, state: FSMContext):
     game = await db.get_game(callback_data.game_id)
     
+    if game[7] == 'finished':
+        await callback.answer("Этот матч уже завершен и недоступен для ставок.", show_alert=True)
+        return
+
     # Проверка времени (за 30 минут)
     start_time = datetime.strptime(game[3], "%Y-%m-%d %H:%M:%S")
     if start_time - datetime.now() <= timedelta(minutes=30):
@@ -108,7 +116,7 @@ async def process_bet_choice(callback: types.CallbackQuery, callback_data: BetCa
     await state.update_data(game_id=callback_data.game_id, choice=callback_data.action, team1=game[1], team2=game[2])
     await state.set_state(BetForm.waiting_for_amount)
     
-    await callback.message.answer("Введите сумму ставки в $GUM (только число):")
+    await callback.message.answer("Введите сумму ставки в $GUM (от 1000 до 100 000):")
     await callback.answer()
 
 # Ввод суммы ставки
@@ -116,9 +124,11 @@ async def process_bet_choice(callback: types.CallbackQuery, callback_data: BetCa
 async def process_bet_amount(message: types.Message, state: FSMContext):
     try:
         amount = float(message.text.replace(',', '.'))
-        if amount <= 0: raise ValueError
+        if not (1000 <= amount <= 100000):
+            await message.answer("Пожалуйста, введите сумму от 1000 до 100000 $GUM.")
+            return
     except ValueError:
-        await message.answer("Пожалуйста, введите корректное число больше нуля.")
+        await message.answer("Пожалуйста, введите корректное число.")
         return
 
     data = await state.get_data()
@@ -129,7 +139,7 @@ async def process_bet_amount(message: types.Message, state: FSMContext):
     await db.add_bet(user_id, data['game_id'], data['choice'], amount)
     
     choice_str = data['team1'] if data['choice'] == 't1' else data['team2'] if data['choice'] == 't2' else 'Ничья'
-    await message.answer(f"✅ Ставка успешно принята!\nМатч: {data['team1']} - {data['team2']}\nИсход: {choice_str}\nСумма: {amount:.2f} $GUM")
+    await message.answer(f"✅ Ставка успешно принята!\nМатч: [ID: {data['game_id']}] {data['team1']} - {data['team2']}\nИсход: {choice_str}\nСумма: {amount:.2f} $GUM")
     
     await state.clear()
 
@@ -158,6 +168,28 @@ async def admin_create_game(message: types.Message):
         await message.answer(f"✅ Матч <b>{team1} - {team2}</b> успешно создан!\nНачало: {start_time}\nКэфы: П1({t1}) П2({t2}) Х({draw})", parse_mode="HTML")
     except ValueError:
         await message.answer("❌ Ошибка формата данных. Убедитесь, что дата введена как YYYY-MM-DD HH:MM, а коэффициенты - числа (через точку).")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {e}")
+
+@dp.message(Command("deletegame"))
+async def admin_delete_game(message: types.Message):
+    if not is_admin(message.from_user.id): return
+    args = message.text.split()
+    if len(args) != 2:
+        await message.answer("Формат: /deletegame <ID игры>")
+        return
+    
+    try:
+        game_id = int(args[1])
+        game = await db.get_game(game_id)
+        if not game:
+            await message.answer("Игра не найдена.")
+            return
+        
+        await db.delete_game(game_id)
+        await message.answer(f"✅ Игра {game_id} (<b>{game[1]} - {game[2]}</b>) и все связанные с ней ставки успешно удалены!", parse_mode="HTML")
+    except ValueError:
+        await message.answer("❌ Ошибка: ID игры должен быть числом.")
     except Exception as e:
         await message.answer(f"❌ Ошибка: {e}")
 

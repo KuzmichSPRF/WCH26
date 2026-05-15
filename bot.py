@@ -36,13 +36,6 @@ class BetCallback(CallbackData, prefix="bet"):
 class BetForm(StatesGroup):
     waiting_for_amount = State()
 
-# --- ФОНОВЫЕ ЗАДАЧИ ---
-
-async def fetch_games_job():
-    while True:
-        await db.create_mock_game_if_empty()
-        await asyncio.sleep(3600)
-
 # --- НАСТРОЙКА МЕНЮ КОМАНД ---
 
 async def set_commands(bot: Bot):
@@ -182,7 +175,7 @@ async def process_bet_amount(message: types.Message, state: FSMContext):
 @dp.message(Command("creategame"))
 async def admin_create_game(message: types.Message):
     if not is_admin(message.from_user.id): return
-    args = message.text.split()
+    args = [arg.strip('<>') for arg in message.text.split()]
     # Ожидаем: /creategame Команда1 Команда2 YYYY-MM-DD HH:MM П1 П2 Ничья
     if len(args) != 8:
         await message.answer("Формат: /creategame <Команда1> <Команда2> <YYYY-MM-DD> <HH:MM> <П1> <П2> <Ничья>\n"
@@ -208,7 +201,7 @@ async def admin_create_game(message: types.Message):
 @dp.message(Command("deletegame"))
 async def admin_delete_game(message: types.Message):
     if not is_admin(message.from_user.id): return
-    args = message.text.split()
+    args = [arg.strip('<>') for arg in message.text.split()]
     if len(args) != 2:
         await message.answer("Формат: /deletegame <ID игры>")
         return
@@ -230,7 +223,7 @@ async def admin_delete_game(message: types.Message):
 @dp.message(Command("gamebets"))
 async def admin_game_bets(message: types.Message):
     if not is_admin(message.from_user.id): return
-    args = message.text.split()
+    args = [arg.strip('<>') for arg in message.text.split()]
     if len(args) != 2:
         await message.answer("Формат: /gamebets <ID игры>")
         return
@@ -271,7 +264,7 @@ async def admin_game_bets(message: types.Message):
 @dp.message(Command("setodds"))
 async def admin_set_odds(message: types.Message):
     if not is_admin(message.from_user.id): return
-    args = message.text.split()
+    args = [arg.strip('<>') for arg in message.text.split()]
     if len(args) != 5:
         await message.answer("Формат: /setodds <ID игры> <П1> <П2> <Ничья>")
         return
@@ -285,7 +278,7 @@ async def admin_set_odds(message: types.Message):
 @dp.message(Command("setresult"))
 async def admin_set_result(message: types.Message):
     if not is_admin(message.from_user.id): return
-    args = message.text.split()
+    args = [arg.strip('<>') for arg in message.text.split()]
     if len(args) != 3:
         await message.answer("Формат: /setresult <ID игры> <t1|t2|draw>")
         return
@@ -321,7 +314,6 @@ async def admin_set_result(message: types.Message):
 
 async def main():
     await db.init_db()
-    asyncio.create_task(fetch_games_job()) # Запуск парсера в фоне
     await set_commands(bot)
     logging.info("Бот успешно запущен!")
     await dp.start_polling(bot)

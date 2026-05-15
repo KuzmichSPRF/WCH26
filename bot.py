@@ -80,7 +80,7 @@ async def cmd_games(message: types.Message):
     for g in games:
         # g = (id, team1, team2, start_time, odds1, odds2, odds_draw, status, result)
         text = (f"🥅 <b>[ID: {g[0]}] {g[1]} vs {g[2]}</b>\n"
-                f"🕒 Начало: {g[3]}\n\n"
+                f"🕒 Начало: {g[3]} (МСК)\n\n"
                 f"Коэффициенты:\n"
                 f"Победа 1 ({g[1]}): {g[4]}\n"
                 f"Ничья: {g[6]}\n"
@@ -194,7 +194,7 @@ async def admin_create_game(message: types.Message):
         datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
         
         await db.add_game(team1, team2, start_time, t1, t2, draw)
-        await message.answer(f"✅ Матч <b>{team1} - {team2}</b> успешно создан!\nНачало: {start_time}\nКэфы: П1({t1}) П2({t2}) Х({draw})", parse_mode="HTML")
+        await message.answer(f"✅ Матч <b>{team1} - {team2}</b> успешно создан!\nНачало: {start_time} (МСК)\nКэфы: П1({t1}) П2({t2}) Х({draw})", parse_mode="HTML")
     except ValueError:
         await message.answer("❌ Ошибка формата данных. Убедитесь, что дата введена как YYYY-MM-DD HH:MM, а коэффициенты - числа (через точку).")
     except Exception as e:

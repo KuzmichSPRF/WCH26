@@ -308,9 +308,13 @@ async def admin_set_result(message: types.Message):
     await db.set_game_result(game_id, result) # Это должно быть до process_game_results, чтобы статус был "finished"
     excel_path = await excel.process_game_results(bot, game_id, result, winning_odds, game[1], game[2])
     
-    # Отправляем файл
-    file = FSInputFile(excel_path)
-    await message.answer_document(document=file, caption=f"✅ Матч {game_id} завершен.\nПобедный исход: {result}\nОтчет прикреплен.")
+    # Отправляем файл всем админам
+    caption_text = f"✅ Матч {game_id} завершен.\nПобедный исход: {result}\nОтчет прикреплен."
+    for admin_id in ADMINS:
+        try:
+            await bot.send_document(chat_id=admin_id, document=FSInputFile(excel_path), caption=caption_text)
+        except Exception as e:
+            logging.error(f"Не удалось отправить отчет админу {admin_id}: {e}")
     
     # Удаляем локальный файл после отправки
     os.remove(excel_path)

@@ -16,6 +16,12 @@ async def process_game_results(bot: Bot, game_id: int, result: str, odds: float,
         is_winner = (choice == result)
         winnings = round(amount * odds, 2) if is_winner else 0
         
+        try:
+            chat_info = await bot.get_chat(user_id)
+            username = f"@{chat_info.username}" if chat_info.username else chat_info.first_name
+        except Exception:
+            username = "Неизвестно"
+        
         async with aiosqlite.connect(DB_NAME) as db:
             status = 'won' if is_winner else 'lost'
             await db.execute("UPDATE bets SET status=? WHERE user_id=? AND game_id=?", 
@@ -37,6 +43,7 @@ async def process_game_results(bot: Bot, game_id: int, result: str, odds: float,
             
         data.append({
             "ID Игрока": user_id,
+            "Юзернейм": username,
             "Ставка ($GUM)": amount,
             "Выбор": choice,
             "Статус": "Выигрыш" if is_winner else "Проигрыш",
@@ -45,7 +52,7 @@ async def process_game_results(bot: Bot, game_id: int, result: str, odds: float,
 
     df = pd.DataFrame(data)
     if df.empty:
-        df = pd.DataFrame(columns=["ID Игрока", "Ставка ($GUM)", "Выбор", "Статус", "Выигрыш ($GUM)"])
+        df = pd.DataFrame(columns=["ID Игрока", "Юзернейм", "Ставка ($GUM)", "Выбор", "Статус", "Выигрыш ($GUM)"])
         
     filename = f"report_game_{game_id}.xlsx"
     df.to_excel(filename, index=False)

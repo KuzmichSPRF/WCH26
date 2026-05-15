@@ -50,6 +50,11 @@ async def get_user_balance(user_id: int) -> float:
             await db.commit()
             return 1000.0
 
+async def has_user_bet(user_id: int, game_id: int) -> bool:
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute("SELECT 1 FROM bets WHERE user_id = ? AND game_id = ?", (user_id, game_id)) as cursor:
+            return await cursor.fetchone() is not None
+
 async def add_bet(user_id: int, game_id: int, choice: str, amount: float):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (amount, user_id))
@@ -103,3 +108,8 @@ async def delete_game(game_id: int):
         await db.execute("DELETE FROM games WHERE game_id = ?", (game_id,))
         await db.execute("DELETE FROM bets WHERE game_id = ?", (game_id,))
         await db.commit()
+
+async def get_game_bets(game_id: int):
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute("SELECT user_id, choice, amount FROM bets WHERE game_id = ?", (game_id,)) as cursor:
+            return await cursor.fetchall()

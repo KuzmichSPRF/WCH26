@@ -86,6 +86,10 @@ async def process_bet_start(callback: types.CallbackQuery, callback_data: BetCal
     if game[7] == 'finished':
         await callback.answer("Этот матч уже завершен и недоступен для ставок.", show_alert=True)
         return
+        
+    if await db.has_user_bet(callback.from_user.id, callback_data.game_id):
+        await callback.answer("Вы уже сделали ставку на этот матч! Можно ставить только один раз.", show_alert=True)
+        return
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -133,6 +137,12 @@ async def process_bet_amount(message: types.Message, state: FSMContext):
 
     data = await state.get_data()
     user_id = message.from_user.id
+    
+    if await db.has_user_bet(user_id, data['game_id']):
+        await message.answer("Вы уже сделали ставку на этот матч! Можно ставить только один раз.")
+        await state.clear()
+        return
+        
     balance = await db.get_user_balance(user_id)
 
     # Добавляем ставку
@@ -188,6 +198,47 @@ async def admin_delete_game(message: types.Message):
         
         await db.delete_game(game_id)
         await message.answer(f"✅ Игра {game_id} (<b>{game[1]} - {game[2]}</b>) и все связанные с ней ставки успешно удалены!", parse_mode="HTML")
+    except ValueError:
+        await message.answer("❌ Ошибка: ID игры должен быть числом.")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {e}")
+
+@dp.message(Command("gamebets"))
+async def admin_game_bets(message: types.Message):
+    if not is_admin(message.from_user.id): return
+    args = message.text.split()
+    if len(args) != 2:
+        await message.answer("Формат: /gamebets <ID игры>")
+        return
+    
+    try:
+        game_id = int(args[1])
+        game = await db.get_game(game_id)
+        if not game:
+            await message.answer("Игра не найдена.")
+            return
+        
+        bets = await db.get_game_bets(game_id)
+        if not bets:
+            await message.answer(f"На матч {game_id} (<b>{game[1]} - {game[2]}</b>) пока нет ставок.", parse_mode="HTML")
+            return
+        
+        text = f"📊 Ставки на матч <b>{game[1]} - {game[2]}</b> (ID: {game_id}):\n\n"
+        total_amount = 0
+        for user_id, choice, amount in bets:
+            choice_str = game[1] if choice == 't1' else game[2] if choice == 't2' else 'Ничья'
+            try:
+                chat_info = await bot.get_chat(user_id)
+                username = f"@{chat_info.username}" if chat_info.username else chat_info.first_name
+            except Exception:
+                username = "Неизвестно"
+                
+            text += f"👤 {username} (ID: {user_id}): {amount:.2f} $GUM на {choice_str}\n"
+            total_amount += amount
+        
+        text += f"\n💰 Общая сумма ставок: {total_amount:.2f} $GUM"
+        await message.answer(text, parse_mode="HTML")
+        
     except ValueError:
         await message.answer("❌ Ошибка: ID игры должен быть числом.")
     except Exception as e:

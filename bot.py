@@ -8,7 +8,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton, BotCommand, BotCommandScopeDefault, BotCommandScopeChat
 from aiogram.filters.callback_data import CallbackData
 
 import database as db
@@ -42,6 +42,30 @@ async def fetch_games_job():
     while True:
         await db.create_mock_game_if_empty()
         await asyncio.sleep(3600)
+
+# --- НАСТРОЙКА МЕНЮ КОМАНД ---
+
+async def set_commands(bot: Bot):
+    user_commands = [
+        BotCommand(command="start", description="Главное меню"),
+        BotCommand(command="games", description="Доступные матчи"),
+    ]
+    
+    admin_commands = user_commands + [
+        BotCommand(command="creategame", description="Создать матч (Админ)"),
+        BotCommand(command="deletegame", description="Удалить матч (Админ)"),
+        BotCommand(command="gamebets", description="Ставки на матч (Админ)"),
+        BotCommand(command="setodds", description="Изменить коэффициенты (Админ)"),
+        BotCommand(command="setresult", description="Завершить матч (Админ)"),
+    ]
+
+    await bot.set_my_commands(user_commands, scope=BotCommandScopeDefault())
+    
+    for admin_id in ADMINS:
+        try:
+            await bot.set_my_commands(admin_commands, scope=BotCommandScopeChat(chat_id=admin_id))
+        except Exception as e:
+            logging.error(f"Не удалось установить команды для админа {admin_id}: {e}")
 
 # --- ХЕНДЛЕРЫ ПОЛЬЗОВАТЕЛЕЙ ---
 
@@ -294,6 +318,7 @@ async def admin_set_result(message: types.Message):
 async def main():
     await db.init_db()
     asyncio.create_task(fetch_games_job()) # Запуск парсера в фоне
+    await set_commands(bot)
     logging.info("Бот успешно запущен!")
     await dp.start_polling(bot)
 
